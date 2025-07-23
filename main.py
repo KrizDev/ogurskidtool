@@ -15,10 +15,28 @@ def get_network():
     parts = ip.split('.')
     return '.'.join(parts[:3]) + '.0/24'
 
-def choose_ssid():
+def choose_interface():
+    print("Available wireless interfaces:\n")
+    result = subprocess.check_output("iw dev | grep Interface | awk '{print $2}'", shell=True).decode().strip()
+    interfaces = result.splitlines()
+
+    if not interfaces:
+        print("No wireless interfaces found.")
+        return None
+
+    for i, iface in enumerate(interfaces):
+        print(f"{i + 1}. {iface}")
+
+    selection = input("\nSelect interface (number): ").strip()
+    if selection.isdigit() and 1 <= int(selection) <= len(interfaces):
+        return interfaces[int(selection) - 1]
+    else:
+        print("Invalid selection.")
+        return None
+
+def choose_ssid(interface):
     print("\nScanning for available networks (10s)...")
-    # Uruchom airodump-ng na 10s, zapisz do csv
-    os.system("airodump-ng wlan0mon --write scan --output-format csv --write-interval 10 & sleep 10; killall airodump-ng")
+    os.system(f"airodump-ng {interface} --write scan --output-format csv --write-interval 10 & sleep 10; killall airodump-ng")
 
     ssids = []
     try:
@@ -59,9 +77,12 @@ if platform.system() != "Linux":
     print("This toolkit works only on Linux.")
     exit()
 
-# Clear screen
+# Clear screen and choose interface
 os.system("clear")
-
+interface = choose_interface()
+if not interface:
+    input("No interface selected. Exiting...")
+    exit()
 
 options = [
     "1. Evil Twin",
@@ -77,13 +98,13 @@ options = [
 ]
 
 commands = [
-    ("wifiphisher", "wifiphisher -e \"{ssid}\""),
+    ("wifiphisher", "wifiphisher -i " + interface + " -e \"{ssid}\""),
     ("aircrack-ng", "aircrack-ng -w {wordlist} {capture}"),
-    ("airodump-ng", "airodump-ng wlan0mon"),
-    ("tcpdump", "tcpdump -i wlan0"),
-    ("aireplay-ng", "aireplay-ng --deauth 100 -a {bssid} wlan0mon"),
-    ("macchanger", "macchanger -r wlan0"),
-    ("iwconfig", "iwconfig wlan0 channel {channel}"),
+    ("airodump-ng", f"airodump-ng {interface}"),
+    ("tcpdump", f"tcpdump -i {interface}"),
+    ("aireplay-ng", f"aireplay-ng --deauth 100 -a {{bssid}} {interface}"),
+    ("macchanger", f"macchanger -r {interface}"),
+    ("iwconfig", f"iwconfig {interface} channel {{channel}}"),
     ("hashcat", "hashcat -m {mode} {hashfile} {wordlist}"),
     ("nmap", f"nmap -sS {get_network()}"),
     ("john", "john --wordlist={wordlist} {hashfile}")
@@ -94,15 +115,9 @@ while True:
     print("""
                                     ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄         ▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄    ▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄           
                                     ▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░▌       ▐░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░▌  ▐░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░▌          
-                                    ▐░█▀▀▀▀▀▀▀█░▌▐░█▀▀▀▀▀▀▀▀▀ ▐░▌       ▐░▌▐░█▀▀▀▀▀▀▀█░▌▐░█▀▀▀▀▀▀▀▀▀ ▐░▌ ▐░▌  ▀▀▀▀█░█▀▀▀▀ ▐░█▀▀▀▀▀▀▀█░▌▀▀▀▀█░█▀▀▀▀ ▐░█▀▀▀▀▀▀▀█░▌▐░█▀▀▀▀▀▀▀█░▌▐░▌          
-                                    ▐░▌       ▐░▌▐░▌          ▐░▌       ▐░▌▐░▌       ▐░▌▐░▌          ▐░▌▐░▌       ▐░▌     ▐░▌       ▐░▌    ▐░▌     ▐░▌       ▐░▌▐░▌       ▐░▌▐░▌          
-                                    ░▌       ▐░▌▐░▌▐░░░░░░░░▌▐░▌       ▐░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░▌         ▐░▌     ▐░▌       ▐░▌    ▐░▌     ▐░▌       ▐░▌▐░▌       ▐░▌▐░▌          
-                                    ▐░▌       ▐░▌▐░▌ ▀▀▀▀▀▀█░▌▐░▌       ▐░▌▐░█▀▀▀▀█░█▀▀  ▀▀▀▀▀▀▀▀▀█░▌▐░▌░▌        ▐░▌     ▐░▌       ▐░▌    ▐░▌     ▐░▌       ▐░▌▐░▌       ▐░▌▐░▌          
-                                    ▐░▌       ▐░▌▐░▌       ▐░▌▐░▌       ▐░▌▐░▌     ▐░▌            ▐░▌▐░▌▐░▌       ▐░▌     ▐░▌       ▐░▌    ▐░▌     ▐░▌       ▐░▌▐░▌       ▐░▌▐░▌          
-                                    ▐░█▄▄▄▄▄▄▄█░▌▐░█▄▄▄▄▄▄▄█░▌▐░█▄▄▄▄▄▄▄█░▌▐░▌      ▐░▌  ▄▄▄▄▄▄▄▄▄█░▌▐░▌ ▐░▌  ▄▄▄▄█░█▄▄▄▄ ▐░█▄▄▄▄▄▄▄█░▌    ▐░▌     ▐░█▄▄▄▄▄▄▄█░▌▐░█▄▄▄▄▄▄▄█░▌▐░█▄▄▄▄▄▄▄▄▄ 
-                                    ▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░▌       ▐░▌▐░░░░░░░░░░░▌▐░▌  ▐░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░▌     ▐░▌     ▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌
-                                    ▀▀▀▀▀▀▀▀▀▀▀  ▀▀▀▀▀▀▀▀▀▀▀  ▀▀▀▀▀▀▀▀▀▀▀  ▀         ▀  ▀▀▀▀▀▀▀▀▀▀▀  ▀    ▀  ▀▀▀▀▀▀▀▀▀▀▀  ▀▀▀▀▀▀▀▀▀▀       ▀       ▀▀▀▀▀▀▀▀▀▀▀  ▀▀▀▀▀▀▀▀▀▀▀  ▀▀▀▀▀▀▀▀▀▀▀ 
-""")
+    """)
+
+    print(f"Current interface: {interface}")
     print("\nChoose a tool:\n")
     width = os.get_terminal_size().columns
     padding = " " * 10
@@ -123,7 +138,7 @@ while True:
     idx = int(choice) - 1
     tool, raw_cmd = commands[idx]
 
-    # Sprawdź czy narzędzie jest zainstalowane
+    # Check for tool installation
     if shutil.which(tool) is None:
         print(f"\n{tool} is not installed. Attempting to install...")
         os.system(f"sudo apt update")
@@ -131,9 +146,9 @@ while True:
 
     cmd = raw_cmd
 
-    # Obsługa parametrów
+    # Handle dynamic inputs
     if "{ssid}" in cmd:
-        ssid = choose_ssid()
+        ssid = choose_ssid(interface)
         if not ssid:
             input("SSID not selected. Press Enter to continue...")
             continue
@@ -161,7 +176,6 @@ while True:
         cmd = cmd.replace("{mode}", mode)
 
     if "{wordlist}" in cmd:
-        # Wybierz wordlistę z folderu wordlists
         wordlists = list_wordlists()
         if not wordlists:
             input("No wordlists found. Press Enter to continue...")
