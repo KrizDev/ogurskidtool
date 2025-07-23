@@ -73,16 +73,31 @@ def list_wordlists(path="wordlists"):
     files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
     return files
 
+def generate_commands(interface):
+    return [
+        ("wifiphisher", f"wifiphisher -i {interface} -e \"{{ssid}}\""),
+        ("aircrack-ng", "aircrack-ng -w {wordlist} {capture}"),
+        ("airodump-ng", f"airodump-ng {interface}"),
+        ("tcpdump", f"tcpdump -i {interface}"),
+        ("aireplay-ng", f"aireplay-ng --deauth 100 -a {{bssid}} {interface}"),
+        ("macchanger", f"macchanger -r {interface}"),
+        ("iwconfig", f"iwconfig {interface} channel {{channel}}"),
+        ("hashcat", "hashcat -m {mode} {hashfile} {wordlist}"),
+        ("nmap", f"nmap -sS {get_network()}"),
+        ("john", "john --wordlist={wordlist} {hashfile}")
+    ]
+
 if platform.system() != "Linux":
     print("This toolkit works only on Linux.")
     exit()
 
-# Clear screen and choose interface
 os.system("clear")
 interface = choose_interface()
 if not interface:
     input("No interface selected. Exiting...")
     exit()
+
+commands = generate_commands(interface)
 
 options = [
     "1. Evil Twin",
@@ -94,30 +109,18 @@ options = [
     "7. Channel Hopper",
     "8. WPA2 Brute-force",
     "9. Network Scan",
-    "10. Password Crack"
-]
-
-commands = [
-    ("wifiphisher", "wifiphisher -i " + interface + " -e \"{ssid}\""),
-    ("aircrack-ng", "aircrack-ng -w {wordlist} {capture}"),
-    ("airodump-ng", f"airodump-ng {interface}"),
-    ("tcpdump", f"tcpdump -i {interface}"),
-    ("aireplay-ng", f"aireplay-ng --deauth 100 -a {{bssid}} {interface}"),
-    ("macchanger", f"macchanger -r {interface}"),
-    ("iwconfig", f"iwconfig {interface} channel {{channel}}"),
-    ("hashcat", "hashcat -m {mode} {hashfile} {wordlist}"),
-    ("nmap", f"nmap -sS {get_network()}"),
-    ("john", "john --wordlist={wordlist} {hashfile}")
+    "10. Password Crack",
+    "11. Change Interface"
 ]
 
 while True:
     os.system("clear")
     print("""
-                ____  _____ _     ____  ____  _  __ _  ____  _____  ____  ____  _    
-                /  _ \/  __// \ /\/  __\/ ___\/ |/ // \/  _ \/__ __\/  _ \/  _ \/ \   
-                / \|| |  _| | |||  \/||    \|   / | || | \|  / \  | / \|| / \|| |   
-                | \_/|| |_//| \_/||    /\___ ||   \ | || |_/|  | |  | \_/|| \_/|| |_/\
-                \____/\____\\____/\_/\_\\____/\_|\_\\_/\____/  \_/  \____/\____/\____/
+            ____  _____ _     ____  ____  _  __ _  ____  _____  ____  ____  _    
+            /  _ \/  __// \ /\/  __\/ ___\/ |/ // \/  _ \/__ __\/  _ \/  _ \/ \   
+            / \|| |  _| | |||  \/||    \|   / | || | \|  / \  | / \|| / \|| |   
+            | \_/|| |_//| \_/||    /\___ ||   \ | || |_/|  | |  | \_/|| \_/|| |_/\
+            \____/\____\\____/\_/\_\\____/\_|\_\\_/\____/  \_/  \____/\____/\____/
                                                                       
     """)
 
@@ -132,8 +135,18 @@ while True:
 
     print("\n0. Exit")
     choice = input("\nSelect option: ").strip()
+
     if choice == "0":
+        os.system('clear')
         break
+
+    if choice == "11":
+        new_interface = choose_interface()
+        if new_interface:
+            interface = new_interface
+            commands = generate_commands(interface)
+        input("Interface updated. Press Enter to continue...")
+        continue
 
     if not choice.isdigit() or not (1 <= int(choice) <= 10):
         input("Invalid option. Press Enter to continue...")
@@ -142,7 +155,6 @@ while True:
     idx = int(choice) - 1
     tool, raw_cmd = commands[idx]
 
-    # Check for tool installation
     if shutil.which(tool) is None:
         print(f"\n{tool} is not installed. Attempting to install...")
         os.system(f"sudo apt update")
@@ -150,7 +162,6 @@ while True:
 
     cmd = raw_cmd
 
-    # Handle dynamic inputs
     if "{ssid}" in cmd:
         ssid = choose_ssid(interface)
         if not ssid:
@@ -211,4 +222,3 @@ while True:
     print(f"\nExecuting:\n{cmd}\n")
     os.system(cmd)
     input("\nPress Enter to continue...")
-
